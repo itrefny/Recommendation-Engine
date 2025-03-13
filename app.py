@@ -1,6 +1,7 @@
-from flask import Flask, jsonify
+from flask import Flask, request, jsonify
 import pandas as pd
 import app_model
+import json
 
 app = Flask(__name__)
 
@@ -27,15 +28,19 @@ def recommend_books_endpoint():
     
 
     try:
-        # favorite_book = str(favorite_book = request.json["favorite-book"])
-        favorite_book = "1984"
+        # Get JSON payload
+        byteData = request.data
+        json_str = byteData.decode('utf-8')        
+        data = json.loads(json_str)
 
+        favorite_book = data["favorite-book"]
+
+        # Run recommendation engine
         dataStorage = app_model.DataStorage()
         recomEngine = app_model.RecommendationEngine(dataStorage)
         recommended_books = recomEngine.RecommendBooks(favorite_book)
         
-        return recommended_books.to_json(orient='records')
-        #return jsonify({ recommended_books.to_json(orient='records') })
+        return jsonify( recommended_books.to_json(orient='records') )
     except () as e:
         return {"message": str(e)}, 400
 
