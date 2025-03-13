@@ -1,0 +1,5 @@
+flask
+fastapi==0.111.0
+pandas
+kagglehub
+scikit-learn
