@@ -46,16 +46,12 @@ class DataStorage:
         return pd.read_csv('data/BX-Book-Ratings.csv', encoding='cp1251', sep=';')
 
 
+
 class RecommendationEngine:
     def __init__(self, dataStorage):
         self.dataStorage = dataStorage
 
-
-    def FactorizationMatrix(self, favoriteBook : str)->list:
-        # import
-        import pandas as pd
-        import numpy as np
-
+    def FactorizationMatrix(self, favoriteBook : str)->list:        
         # load ratings
         #ratings = pd.read_csv('data/BX-Book-Ratings.csv', encoding='cp1251', sep=';')
         ratings = self.dataStorage.GetBookRatings()
@@ -95,9 +91,9 @@ class RecommendationEngine:
 
         dataset_for_corr = ratings_data_raw_nodup.pivot(index='User-ID', columns='Book-Title', values='Book-Rating')
 
-        #LoR_list = ['the fellowship of the ring (the lord of the rings, part 1)']
+        LoR_list = ['the fellowship of the ring (the lord of the rings, part 1)']
         #LoR_list = ['1984']
-        LoR_list = [ favoriteBook ]
+        #LoR_list = [['the fellowship of the ring (the lord of the rings, part 1)', 'talkien']] ]
 
         result_list = []
         worst_list = []
@@ -139,6 +135,7 @@ class RecommendationEngine:
         rslt = result_list[0]
 
         resultSet = dataset_lowercase[['Book-Title', 'Book-Author']][dataset_lowercase['Book-Title'].isin(rslt["book"])].drop_duplicates()
+        print(resultSet)
         #listRecommenedBooks = rslt["book"].to_list(index=False)
 
         return resultSet
