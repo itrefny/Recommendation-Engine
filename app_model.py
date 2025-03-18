@@ -2,70 +2,106 @@ import pandas as pd
 import numpy as np
 import kagglehub
 import os
+from datetime import datetime
 
 
 class Crawler:
-    def RefreshData()->str:
-        destination_path = "/app/data/"
+    def __init__(self):
+        self.destination_path = '/app/data/'
+        self.booksFileName = 'BX-Books.csv'
+        self.booksRatingsFileName = 'BX-Book-Ratings.csv'
+
+    def RefreshData(self)->str:
+        #os.chdir(self.destination_path)
+
+        cachePath = kagglehub.dataset_download("jirakst/bookcrossing")
+        print("cachePath"+cachePath)
         
-        os.chdir(destination_path)
-        # Download latest version from Kaggle Hub
-        
-        path = kagglehub.dataset_download("jirakst/bookcrossing")
+        newSourceFilePath_Books = cachePath+'/'+self.booksFileName
+        newSourceFilePath_BookRatings = cachePath+'/'+self.booksRatingsFileName
 
-        str(os.listdir(path))
-#        # Specify the source and destination directories
-#        source_folder = path
-#        destination_folder = "data/"
-#
-#        # Check if destination folder exists, if not create it
-#        if not os.path.exists(destination_folder):
-#            os.makedirs(destination_folder)
-#
-#        # Get a list of all files in the source folder
-#        files = os.listdir(source_folder)
-#
-#        # Loop through each file and move it
-#        for file in files:
-#            source_file = os.path.join(source_folder, file)
-#            destination_file = os.path.join(destination_folder, file)
-#
-#        # Check if it's a file (not a directory)
-#        if os.path.isfile(source_file):
-#            os.rename(source_file, destination_file)
-#            print(f"Moved: {source_file} to {destination_file}")
-
-        return str(os.listdir(path))
+        if(os.path.exists(newSourceFilePath_Books)):
+            dataStorage = DataStorage()
+            dataStorage.RefreshBooks(newSourceFilePath_Books)
+            dataStorage.RefreshBookRatings(newSourceFilePath_BookRatings)
+            self.dataRefreshed = True
+            
+            return 'Data sources refreshed.'
+        else:
+            return 'Data sources has been refreshed already.'
 
 
-class DataStorage:    
+
+class DataStorage:
+    def __init__(self):
+        self.booksFileName = cwd = os.getcwd() + '/data/BX-Books.csv'
+        self.booksRatingsFileName = cwd = os.getcwd() + '/data/BX-Book-Ratings.csv'
+
     def GetBooks(self)->pd.DataFrame:
-        return pd.read_csv('data/BX-Books.csv',  encoding='cp1251', sep=';', on_bad_lines='skip')
+        return pd.read_csv(self.booksFileName,  encoding='cp1251', sep=';', on_bad_lines='skip')
     
     def GetBookRatings(self)->pd.DataFrame:
-        return pd.read_csv('data/BX-Book-Ratings.csv', encoding='cp1251', sep=';')
+        return pd.read_csv(self.booksRatingsFileName, encoding='cp1251', sep=';')
 
+    def RefreshBooks(self, newSourceFilePath):
+        print('newSourceFilePath: '+newSourceFilePath)
 
+        if(os.path.exists(newSourceFilePath)):
+            if(os.path.exists(self.booksFileName)):
+                # Rename old file
+                strTimestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+                newFileName = (self.booksFileName + '.' + strTimestamp)
+                print('newFileName: '+newFileName)
+                os.rename(self.booksFileName, newFileName)
+
+            # Rename new file
+            os.rename(newSourceFilePath, self.booksFileName)
+            return 'Data source Books refreshed.'
+        raise Exception("Source file path have not been found.")
+
+    def RefreshBookRatings(self, newSourceFilePath):
+        if(os.path.exists(newSourceFilePath)):
+            if(os.path.exists(self.booksRatingsFileName)):
+                # Rename old file
+                strTimestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+                newFileName = (self.booksRatingsFileName + '.' + strTimestamp)
+                
+                os.rename(self.booksRatingsFileName, newFileName)
+
+            # Rename new file
+            os.rename(newSourceFilePath, self.booksRatingsFileName)
+            return 'Data source Book Ratings refreshed.'
+        raise Exception("Source file path have not been found.")
 
 class RecommendationEngine:
-    def __init__(self, dataStorage):
+    def __init__(self, dataStorage, favorite_bookISBN):
         self.dataStorage = dataStorage
+        self.favorite_bookISBN = favorite_bookISBN
 
-    def FactorizationMatrix(self, favoriteBook : str)->list:        
+    def FactorizationMatrix(self)->list:        
         # load ratings
         #ratings = pd.read_csv('data/BX-Book-Ratings.csv', encoding='cp1251', sep=';')
         ratings = self.dataStorage.GetBookRatings()
 
+        # load books
+        #books = pd.read_csv('data/BX-Books.csv',  encoding='cp1251', sep=';', on_bad_lines='skip')
+        books = self.dataStorage.GetBooks()
+
+        # get favorite book
+        favorite_book = books[['ISBN', 'Book-Title', 'Book-Author']][books['ISBN']==self.favorite_bookISBN].head(1)        
+        
+        book_title = str(favorite_book['Book-Title']).lower()
+        book_author = str(favorite_book['Book-Author']).lower()
+        
+        print('book_title: '+book_title)
+        print('book_author: '+book_author)
+
+        # Filter ratings with zero rate
         ratings = ratings[ratings['Book-Rating']!=0]
 
-        # load books
-        books = pd.read_csv('data/BX-Books.csv',  encoding='cp1251', sep=';', on_bad_lines='skip')
-        #books = self.dataStorage.GetBooks()
-
-        #users_ratigs = pd.merge(ratings, users, on=['User-ID'])
+        # users_ratigs = pd.merge(ratings, users, on=['User-ID'])
         dataset = pd.merge(ratings, books, on=['ISBN'])
         dataset_lowercase=dataset.apply(lambda x: x.str.lower() if(x.dtype == 'object') else x)
-        print(dataset_lowercase.head(10))
 
         tolkien_readers = dataset_lowercase['User-ID'][(dataset_lowercase['Book-Title']=='the fellowship of the ring (the lord of the rings, part 1)') & (dataset_lowercase['Book-Author'].str.contains("tolkien"))]
         tolkien_readers = tolkien_readers.tolist()
@@ -136,16 +172,12 @@ class RecommendationEngine:
 
         resultSet = dataset_lowercase[['Book-Title', 'Book-Author']][dataset_lowercase['Book-Title'].isin(rslt["book"])].drop_duplicates()
         print(resultSet)
-        #listRecommenedBooks = rslt["book"].to_list(index=False)
 
         return resultSet
 
 
-    def RecommendBooks(self, favoriteBook : str) -> list:
-        # recommended_books = [ "Hello world", "book2", "book3", "book4", "book5", "book6", "book7", "book8", "book9", "book10" ]
-        recommended_books = self.FactorizationMatrix('the brethren')
-        #dreamcatcher
-        #the brethren
+    def RecommendBooks(self) -> list:
+        recommended_books = self.FactorizationMatrix()
         
         return recommended_books
     

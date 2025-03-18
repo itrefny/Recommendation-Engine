@@ -17,28 +17,30 @@ def home():
     
     return jsonify({"message": "This is book recommendation system. Please call /recommend-books function to get recommendations."})
 
+
 @app.route("/refresh-data", methods=["GET"])
 def refresh_data_endpoint():
-    app_model.Crawler.RefreshData()
-    return jsonify({"message": app_model.Crawler.RefreshData()})
+    crawler = app_model.Crawler()
+    msg = crawler.RefreshData()
+
+    return jsonify({"message": msg})
 
 
 @app.route("/recommend-books", methods=["POST"])
-def recommend_books_endpoint():
-    
+def recommend_books_endpoint():    
 
     try:
         # Get JSON payload
         byteData = request.data
-        json_str = byteData.decode('utf-8')        
+        json_str = byteData.decode('utf-8')
         data = json.loads(json_str)
-
-        favorite_book = data["favorite-book"]
+        
+        favorite_bookISBN = data['ISBN']
 
         # Run recommendation engine
         dataStorage = app_model.DataStorage()
-        recomEngine = app_model.RecommendationEngine(dataStorage)
-        recommended_books = recomEngine.RecommendBooks(favorite_book)
+        recomEngine = app_model.RecommendationEngine(dataStorage, favorite_bookISBN)
+        recommended_books = recomEngine.RecommendBooks()
         
         return jsonify( recommended_books.to_json(orient='records') )
     except () as e:
